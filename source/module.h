@@ -46,6 +46,7 @@ extern PyObject *_CBOR2_str_denominator;
 extern PyObject *_CBOR2_str_Fraction;
 extern PyObject *_CBOR2_str_fromtimestamp;
 extern PyObject *_CBOR2_str_FrozenDict;
+extern PyObject *_CBOR2_str_geturl;
 extern PyObject *_CBOR2_str_getvalue;
 extern PyObject *_CBOR2_str_groups;
 extern PyObject *_CBOR2_str_ip_address;
@@ -65,9 +66,12 @@ extern PyObject *_CBOR2_str_pattern;
 extern PyObject *_CBOR2_str_prefixlen;
 extern PyObject *_CBOR2_str_read;
 extern PyObject *_CBOR2_str_s;
+extern PyObject *_CBOR2_str_standard_b64decode;
 extern PyObject *_CBOR2_str_timestamp;
 extern PyObject *_CBOR2_str_timezone;
 extern PyObject *_CBOR2_str_update;
+extern PyObject *_CBOR2_str_urlsafe_b64decode;
+extern PyObject *_CBOR2_str_urlsplit;
 extern PyObject *_CBOR2_str_utc;
 extern PyObject *_CBOR2_str_utc_suffix;
 extern PyObject *_CBOR2_str_UUID;
@@ -91,6 +95,9 @@ extern PyObject *_CBOR2_re_compile;
 extern PyObject *_CBOR2_datestr_re;
 extern PyObject *_CBOR2_ip_address;
 extern PyObject *_CBOR2_ip_network;
+extern PyObject *_CBOR2_urlsplit;
+extern PyObject *_CBOR2_standard_b64decode;
+extern PyObject *_CBOR2_urlsafe_b64decode;
 
 // Initializers for the cached references above
 int _CBOR2_init_timezone_utc(void); // also handles timezone
@@ -102,6 +109,7 @@ int _CBOR2_init_UUID(void);
 int _CBOR2_init_Parser(void);
 int _CBOR2_init_re_compile(void); // also handles datestr_re
 int _CBOR2_init_ip_address(void);
+int _CBOR2_init_urlsplit(void); // also handles {standard,urlsafe}_b64decode
 
 int init_default_encoders(void);
 int init_canonical_encoders(void);

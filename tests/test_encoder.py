@@ -19,6 +19,7 @@ import pytest
 from cbor2 import shareable_encoder
 from cbor2.compat import timezone, pack_float16
 from cbor2.types import FrozenDict
+from cbor2.compat import urlsplit
 
 
 def test_fp_attr(impl):
@@ -263,6 +264,11 @@ def test_decimal(impl, value, expected):
 def test_rational(impl):
     expected = unhexlify('d81e820205')
     assert impl.dumps(Fraction(2, 5)) == expected
+
+
+def test_url(impl):
+    expected = unhexlify('d82072687474703a2f2f6578616d706c652e636f6d')
+    assert impl.dumps(urlsplit('http://example.com')) == expected
 
 
 def test_regex(impl):

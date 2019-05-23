@@ -7,6 +7,7 @@ if sys.version_info.major < 3:
     from collections import Mapping  # noqa: F401
     from datetime import tzinfo, timedelta
     from binascii import unhexlify
+    from urlparse import urlsplit, SplitResult, ParseResult  # noqa: F401
 
     class timezone(tzinfo):
         def __init__(self, offset):
@@ -62,6 +63,7 @@ else:
     from collections.abc import Mapping  # noqa: F401
     from datetime import timezone
     from reprlib import recursive_repr  # noqa: F401
+    from urllib.parse import urlsplit, SplitResult, ParseResult  # noqa: F401
 
     def byte_as_integer(bytestr):
         return bytestr[0]

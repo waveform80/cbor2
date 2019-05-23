@@ -577,6 +577,41 @@ error:
     return -1;
 }
 
+
+int
+_CBOR2_init_urlsplit(void)
+{
+    PyObject *urllib_parse, *base64;
+
+    // from urllib.parse import urlsplit
+    urllib_parse = PyImport_ImportModule("urllib.parse");
+    if (!urllib_parse)
+        goto error1;
+    _CBOR2_urlsplit = PyObject_GetAttr(urllib_parse, _CBOR2_str_urlsplit);
+    Py_DECREF(urllib_parse);
+    if (!_CBOR2_urlsplit)
+        goto error1;
+
+    // from base64 import standard_b64decode, urlsafe_b64decode
+    base64 = PyImport_ImportModule("base64");
+    if (!base64)
+        goto error2;
+    _CBOR2_standard_b64decode = PyObject_GetAttr(base64, _CBOR2_str_standard_b64decode);
+    _CBOR2_urlsafe_b64decode = PyObject_GetAttr(base64, _CBOR2_str_urlsafe_b64decode);
+    Py_DECREF(base64);
+    if (!_CBOR2_standard_b64decode)
+        goto error2;
+    if (!_CBOR2_urlsafe_b64decode)
+        goto error2;
+    return 0;
+error1:
+    PyErr_SetString(PyExc_ImportError, "unable to import urlsplit from urllib.parse");
+    return -1;
+error2:
+    PyErr_SetString(PyExc_ImportError, "unable to import standard_b64decode from base64");
+    return -1;
+}
+
 
 // Module definition /////////////////////////////////////////////////////////
 
@@ -597,6 +632,7 @@ PyObject *_CBOR2_str_denominator = NULL;
 PyObject *_CBOR2_str_Fraction = NULL;
 PyObject *_CBOR2_str_fromtimestamp = NULL;
 PyObject *_CBOR2_str_FrozenDict = NULL;
+PyObject *_CBOR2_str_geturl = NULL;
 PyObject *_CBOR2_str_getvalue = NULL;
 PyObject *_CBOR2_str_groups = NULL;
 PyObject *_CBOR2_str_ip_address = NULL;
@@ -616,9 +652,12 @@ PyObject *_CBOR2_str_pattern = NULL;
 PyObject *_CBOR2_str_prefixlen = NULL;
 PyObject *_CBOR2_str_read = NULL;
 PyObject *_CBOR2_str_s = NULL;
+PyObject *_CBOR2_str_standard_b64decode = NULL;
 PyObject *_CBOR2_str_timestamp = NULL;
 PyObject *_CBOR2_str_timezone = NULL;
 PyObject *_CBOR2_str_update = NULL;
+PyObject *_CBOR2_str_urlsplit = NULL;
+PyObject *_CBOR2_str_urlsafe_b64decode = NULL;
 PyObject *_CBOR2_str_utc = NULL;
 PyObject *_CBOR2_str_utc_suffix = NULL;
 PyObject *_CBOR2_str_UUID = NULL;
@@ -640,6 +679,9 @@ PyObject *_CBOR2_re_compile = NULL;
 PyObject *_CBOR2_datestr_re = NULL;
 PyObject *_CBOR2_ip_address = NULL;
 PyObject *_CBOR2_ip_network = NULL;
+PyObject *_CBOR2_urlsplit = NULL;
+PyObject *_CBOR2_standard_b64decode = NULL;
+PyObject *_CBOR2_urlsafe_b64decode = NULL;
 
 PyObject *_CBOR2_default_encoders = NULL;
 PyObject *_CBOR2_canonical_encoders = NULL;
@@ -658,6 +700,9 @@ cbor2_free(PyObject *m)
     Py_CLEAR(_CBOR2_datestr_re);
     Py_CLEAR(_CBOR2_ip_address);
     Py_CLEAR(_CBOR2_ip_network);
+    Py_CLEAR(_CBOR2_urlsplit);
+    Py_CLEAR(_CBOR2_standard_b64decode);
+    Py_CLEAR(_CBOR2_urlsafe_b64decode);
     Py_CLEAR(_CBOR2_CBOREncodeError);
     Py_CLEAR(_CBOR2_CBORDecodeError);
     Py_CLEAR(_CBOR2_CBORError);
@@ -857,6 +902,7 @@ PyInit__cbor2(void)
     INTERN_STRING(Fraction);
     INTERN_STRING(fromtimestamp);
     INTERN_STRING(FrozenDict);
+    INTERN_STRING(geturl);
     INTERN_STRING(getvalue);
     INTERN_STRING(groups);
     INTERN_STRING(ip_address);
@@ -876,9 +922,12 @@ PyInit__cbor2(void)
     INTERN_STRING(prefixlen);
     INTERN_STRING(read);
     INTERN_STRING(s);
+    INTERN_STRING(standard_b64decode);
     INTERN_STRING(timestamp);
     INTERN_STRING(timezone);
     INTERN_STRING(update);
+    INTERN_STRING(urlsafe_b64decode);
+    INTERN_STRING(urlsplit);
     INTERN_STRING(utc);
     INTERN_STRING(UUID);
     INTERN_STRING(write);

@@ -12,7 +12,7 @@ from sys import modules
 
 from .compat import (
     iteritems, timezone, long, int2bytes, unicode, as_unicode, pack_float16,
-    unpack_float16)
+    unpack_float16, SplitResult, ParseResult)
 from .types import (
     CBOREncodeError, CBORTag, undefined, CBORSimpleValue, FrozenDict)
 
@@ -363,6 +363,13 @@ class CBOREncoder(object):
         with self.disable_value_sharing():
             self.encode_semantic(CBORTag(30, [value.numerator, value.denominator]))
 
+    def encode_url(self, value):
+        # Semantic tag 32
+        url = value.geturl()
+        if isinstance(url, bytes):
+            url = url.decode('utf-8')
+        self.encode_semantic(CBORTag(32, url))
+
     def encode_regexp(self, value):
         # Semantic tag 35
         self.encode_semantic(CBORTag(35, as_unicode(value.pattern)))
@@ -480,6 +487,8 @@ default_encoders = OrderedDict([
     (('ipaddress', 'IPv6Address'),  CBOREncoder.encode_ipaddress),
     (('ipaddress', 'IPv4Network'),  CBOREncoder.encode_ipnetwork),
     (('ipaddress', 'IPv6Network'),  CBOREncoder.encode_ipnetwork),
+    (SplitResult,                   CBOREncoder.encode_url),
+    (ParseResult,                   CBOREncoder.encode_url),
     (CBORSimpleValue,               CBOREncoder.encode_simple_value),
     (CBORTag,                       CBOREncoder.encode_semantic),
     (set,                           CBOREncoder.encode_set),

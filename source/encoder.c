@@ -1192,6 +1192,24 @@ CBOREncoder_encode_rational(CBOREncoderObject *self, PyObject *value)
 }
 
 
+// CBOREncoder.encode_url(self, value)
+static PyObject *
+CBOREncoder_encode_url(CBOREncoderObject *self, PyObject *value)
+{
+    PyObject *url, *ret = NULL;
+
+    url = PyObject_CallMethodObjArgs(value, _CBOR2_str_geturl, NULL);
+    if (url) {
+        if (encode_semantic(self, 32, url) == 0) {
+            Py_INCREF(Py_None);
+            ret = Py_None;
+        }
+        Py_DECREF(url);
+    }
+    return ret;
+}
+
+
 // CBOREncoder.encode_regexp(self, value)
 static PyObject *
 CBOREncoder_encode_regexp(CBOREncoderObject *self, PyObject *value)
@@ -1939,6 +1957,8 @@ static PyMethodDef CBOREncoder_methods[] = {
         "encode the specified fraction to the output"},
     {"encode_decimal", (PyCFunction) CBOREncoder_encode_decimal, METH_O,
         "encode the specified Decimal to the output"},
+    {"encode_url", (PyCFunction) CBOREncoder_encode_url, METH_O,
+        "encode the specified URL (SplitResult) to the output"},
     {"encode_regexp", (PyCFunction) CBOREncoder_encode_regexp, METH_O,
         "encode the specified regular expression object to the output"},
     {"encode_mime", (PyCFunction) CBOREncoder_encode_mime, METH_O,

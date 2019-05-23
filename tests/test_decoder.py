@@ -18,7 +18,7 @@ except ImportError:
 
 import pytest
 
-from cbor2.compat import timezone
+from cbor2.compat import timezone, urlsplit
 from cbor2.types import FrozenDict
 
 
@@ -337,6 +337,18 @@ def test_bigfloat(impl):
 def test_rational(impl):
     decoded = impl.loads(unhexlify('d81e820205'))
     assert decoded == Fraction(2, 5)
+
+
+@pytest.mark.parametrize('payload, expected', [
+    ('d82072687474703a2f2f6578616d706c652e636f6d', urlsplit('http://example.com')),
+    ('d82178286148523063446f764c3256345957317762475575593239744c325a76627a'
+     '74695958495f59513d3d', urlsplit('http://example.com/foo;bar?a')),
+    ('d82278286148523063446f764c3256345957317762475575593239744c325a76627a'
+     '74695958492f59513d3d', urlsplit('http://example.com/foo;bar?a')),
+], ids=['standard', 'base64url', 'base64'])
+def test_url(impl, payload, expected):
+    payload = unhexlify(payload)
+    assert impl.loads(payload) == expected
 
 
 def test_regex(impl):

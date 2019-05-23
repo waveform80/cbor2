@@ -433,6 +433,29 @@ class CBORDecoder(object):
         from fractions import Fraction
         return self.set_shareable(Fraction(*self._decode()))
 
+    def decode_url(self):
+        # Semantic tag 32
+        from .compat import urlsplit
+        return self.set_shareable(urlsplit(self._decode()))
+
+    def decode_base64url_url(self):
+        # Semantic tag 33
+        from .compat import urlsplit
+        from base64 import urlsafe_b64decode
+        # NOTE: the ASCII encoding below is only required for 2.x compat
+        data = self._decode().encode('ascii')
+        url = urlsafe_b64decode(data).decode('utf-8', self._str_errors)
+        return self.set_shareable(urlsplit(url))
+
+    def decode_base64_url(self):
+        # Semantic tag 34
+        from .compat import urlsplit
+        from base64 import standard_b64decode
+        # NOTE: the ASCII encoding below is only required for 2.x compat
+        data = self._decode().encode('ascii')
+        url = standard_b64decode(data).decode('utf-8', self._str_errors)
+        return self.set_shareable(urlsplit(url))
+
     def decode_regexp(self):
         # Semantic tag 35
         return self.set_shareable(re.compile(self._decode()))
@@ -534,6 +557,9 @@ semantic_decoders = {
     28:  CBORDecoder.decode_shareable,
     29:  CBORDecoder.decode_sharedref,
     30:  CBORDecoder.decode_rational,
+    32:  CBORDecoder.decode_url,
+    33:  CBORDecoder.decode_base64url_url,
+    34:  CBORDecoder.decode_base64_url,
     35:  CBORDecoder.decode_regexp,
     36:  CBORDecoder.decode_mime,
     37:  CBORDecoder.decode_uuid,

@@ -61,6 +61,9 @@ static PyObject * CBORDecoder_decode_float32(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_float64(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_ipaddress(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_ipnetwork(CBORDecoderObject *);
+static PyObject * CBORDecoder_decode_url(CBORDecoderObject *);
+static PyObject * CBORDecoder_decode_base64url_url(CBORDecoderObject *);
+static PyObject * CBORDecoder_decode_base64_url(CBORDecoderObject *);
 
 static PyObject * CBORDecoder_decode_shareable(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_sharedref(CBORDecoderObject *);
@@ -858,6 +861,9 @@ decode_semantic(CBORDecoderObject *self, uint8_t subtype)
             case 28:  ret = CBORDecoder_decode_shareable(self);       break;
             case 29:  ret = CBORDecoder_decode_sharedref(self);       break;
             case 30:  ret = CBORDecoder_decode_rational(self);        break;
+            case 32:  ret = CBORDecoder_decode_url(self);             break;
+            case 33:  ret = CBORDecoder_decode_base64url_url(self);   break;
+            case 34:  ret = CBORDecoder_decode_base64_url(self);      break;
             case 35:  ret = CBORDecoder_decode_regexp(self);          break;
             case 36:  ret = CBORDecoder_decode_mime(self);            break;
             case 37:  ret = CBORDecoder_decode_uuid(self);            break;
@@ -1213,6 +1219,92 @@ CBORDecoder_decode_rational(CBORDecoderObject *self)
                     NULL);
         }
         Py_DECREF(tuple);
+    }
+    set_shareable(self, ret);
+    return ret;
+}
+
+
+// CBORDecoder.decode_url(self)
+static PyObject *
+CBORDecoder_decode_url(CBORDecoderObject *self)
+{
+    // semantic type 32
+    PyObject *url, *ret = NULL;
+
+    if (!_CBOR2_urlsplit && _CBOR2_init_urlsplit() == -1)
+        return NULL;
+    url = decode(self, DECODE_UNSHARED);
+    if (url) {
+        ret = PyObject_CallFunctionObjArgs(_CBOR2_urlsplit, url, NULL);
+        Py_DECREF(url);
+    }
+    set_shareable(self, ret);
+    return ret;
+}
+
+
+// CBORDecoder.decode_base64url_url(self)
+static PyObject *
+CBORDecoder_decode_base64url_url(CBORDecoderObject *self)
+{
+    // semantic type 33
+    PyObject *data, *url_bytes, *url, *ret = NULL;
+
+    if (!_CBOR2_urlsplit && _CBOR2_init_urlsplit() == -1)
+        return NULL;
+    data = decode(self, DECODE_UNSHARED);
+    if (data) {
+        url_bytes = PyObject_CallFunctionObjArgs(
+                _CBOR2_urlsafe_b64decode, data, NULL);
+        if (url_bytes) {
+            if (PyBytes_CheckExact(url_bytes)) {
+                url = PyUnicode_DecodeUTF8(
+                        PyBytes_AS_STRING(url_bytes),
+                        PyBytes_GET_SIZE(url_bytes),
+                        PyBytes_AS_STRING(self->str_errors));
+                Py_DECREF(url_bytes);
+            } else
+                url = url_bytes;
+            if (url) {
+                ret = PyObject_CallFunctionObjArgs(_CBOR2_urlsplit, url, NULL);
+                Py_DECREF(url);
+            }
+        }
+        Py_DECREF(data);
+    }
+    set_shareable(self, ret);
+    return ret;
+}
+
+
+// CBORDecoder.decode_base64url_url(self)
+static PyObject *
+CBORDecoder_decode_base64_url(CBORDecoderObject *self)
+{
+    // semantic type 34
+    PyObject *data, *url_bytes, *url, *ret = NULL;
+
+    if (!_CBOR2_urlsplit && _CBOR2_init_urlsplit() == -1)
+        return NULL;
+    data = decode(self, DECODE_UNSHARED);
+    if (data) {
+        url_bytes = PyObject_CallFunctionObjArgs(_CBOR2_standard_b64decode, data, NULL);
+        if (url_bytes) {
+            if (PyBytes_CheckExact(url_bytes)) {
+                url = PyUnicode_DecodeUTF8(
+                        PyBytes_AS_STRING(url_bytes),
+                        PyBytes_GET_SIZE(url_bytes),
+                        PyBytes_AS_STRING(self->str_errors));
+                Py_DECREF(url_bytes);
+            } else
+                url = url_bytes;
+            if (url) {
+                ret = PyObject_CallFunctionObjArgs(_CBOR2_urlsplit, url, NULL);
+                Py_DECREF(url);
+            }
+        }
+        Py_DECREF(data);
     }
     set_shareable(self, ret);
     return ret;
@@ -1665,10 +1757,18 @@ static PyMethodDef CBORDecoder_methods[] = {
         "decode a negative big-integer from the input"},
     {"decode_fraction", (PyCFunction) CBORDecoder_decode_fraction, METH_NOARGS,
         "decode a fractional number from the input"},
-    {"decode_rational", (PyCFunction) CBORDecoder_decode_rational, METH_NOARGS,
-        "decode a rational value from the input"},
     {"decode_bigfloat", (PyCFunction) CBORDecoder_decode_bigfloat, METH_NOARGS,
         "decode a large floating-point value from the input"},
+    {"decode_rational", (PyCFunction) CBORDecoder_decode_rational, METH_NOARGS,
+        "decode a rational value from the input"},
+    {"decode_url", (PyCFunction) CBORDecoder_decode_url, METH_NOARGS,
+        "decode a URL value from the input"},
+    {"decode_base64url_url",
+        (PyCFunction) CBORDecoder_decode_base64url_url, METH_NOARGS,
+        "decode a base64url-encoded URL value from the input"},
+    {"decode_base64_url",
+        (PyCFunction) CBORDecoder_decode_base64_url, METH_NOARGS,
+        "decode a base64-encoded URL value from the input"},
     {"decode_regexp", (PyCFunction) CBORDecoder_decode_regexp, METH_NOARGS,
         "decode a regular expression from the input"},
     {"decode_mime", (PyCFunction) CBORDecoder_decode_mime, METH_NOARGS,
