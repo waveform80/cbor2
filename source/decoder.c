@@ -45,6 +45,7 @@ static int _CBORDecoder_set_str_errors(CBORDecoderObject *, PyObject *, void *);
 static PyObject * decode(CBORDecoderObject *, DecodeOptions);
 static PyObject * decode_bytestring(CBORDecoderObject *, uint8_t);
 static PyObject * decode_string(CBORDecoderObject *, uint8_t);
+static PyObject * decode_typed_array(CBORDecoderObject *, const char, bool);
 static PyObject * CBORDecoder_decode_datetime_string(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_epoch_datetime(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_fraction(CBORDecoderObject *);
@@ -64,7 +65,6 @@ static PyObject * CBORDecoder_decode_ipnetwork(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_url(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_base64url_url(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_base64_url(CBORDecoderObject *);
-
 static PyObject * CBORDecoder_decode_shareable(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_sharedref(CBORDecoderObject *);
 static PyObject * CBORDecoder_decode_set(CBORDecoderObject *);
@@ -867,6 +867,25 @@ decode_semantic(CBORDecoderObject *self, uint8_t subtype)
             case 35:  return CBORDecoder_decode_regexp(self);
             case 36:  return CBORDecoder_decode_mime(self);
             case 37:  return CBORDecoder_decode_uuid(self);
+            case 64:  return decode_typed_array(self, PY_TYPE_UINT8, false);
+            case 65:  return decode_typed_array(self, PY_TYPE_UINT16, PY_LITTLE_ENDIAN);
+            case 66:  return decode_typed_array(self, PY_TYPE_UINT32, PY_LITTLE_ENDIAN);
+            case 67:  return decode_typed_array(self, PY_TYPE_UINT64, PY_LITTLE_ENDIAN);
+            case 68:  return decode_typed_array(self, PY_TYPE_UINT8, false);
+            case 69:  return decode_typed_array(self, PY_TYPE_UINT16, PY_BIG_ENDIAN);
+            case 70:  return decode_typed_array(self, PY_TYPE_UINT32, PY_BIG_ENDIAN);
+            case 71:  return decode_typed_array(self, PY_TYPE_UINT64, PY_BIG_ENDIAN);
+            case 72:  return decode_typed_array(self, PY_TYPE_SINT8, false);
+            case 73:  return decode_typed_array(self, PY_TYPE_SINT16, PY_LITTLE_ENDIAN);
+            case 74:  return decode_typed_array(self, PY_TYPE_SINT32, PY_LITTLE_ENDIAN);
+            case 75:  return decode_typed_array(self, PY_TYPE_SINT64, PY_LITTLE_ENDIAN);
+            case 77:  return decode_typed_array(self, PY_TYPE_SINT16, PY_BIG_ENDIAN);
+            case 78:  return decode_typed_array(self, PY_TYPE_SINT32, PY_BIG_ENDIAN);
+            case 79:  return decode_typed_array(self, PY_TYPE_SINT64, PY_BIG_ENDIAN);
+            case 81:  return decode_typed_array(self, PY_TYPE_FLOAT32, PY_LITTLE_ENDIAN);
+            case 82:  return decode_typed_array(self, PY_TYPE_FLOAT64, PY_LITTLE_ENDIAN);
+            case 85:  return decode_typed_array(self, PY_TYPE_FLOAT32, PY_BIG_ENDIAN);
+            case 86:  return decode_typed_array(self, PY_TYPE_FLOAT64, PY_BIG_ENDIAN);
             case 258: return CBORDecoder_decode_set(self);
             case 260: return CBORDecoder_decode_ipaddress(self);
             case 261: return CBORDecoder_decode_ipnetwork(self);
@@ -1373,6 +1392,46 @@ CBORDecoder_decode_uuid(CBORDecoderObject *self)
 }
 
 
+static PyObject *
+decode_typed_array(CBORDecoderObject *self, const char typecode, bool byteswap)
+{
+    PyObject *bytes, *typeobj, *ret = NULL;
+
+    if (!_CBOR2_array && _CBOR2_init_array() == -1)
+        return NULL;
+    bytes = decode(self, DECODE_UNSHARED);
+    if (bytes) {
+        typeobj = PyUnicode_FromKindAndData(PyUnicode_1BYTE_KIND, &typecode, 1);
+        if (typeobj) {
+            ret = PyObject_CallFunctionObjArgs(
+                    _CBOR2_array, typeobj, bytes, NULL);
+            if (ret && byteswap)
+                if (!PyObject_CallMethodObjArgs(ret, _CBOR2_str_byteswap, NULL)) {
+                    Py_DECREF(ret);
+                    ret = NULL;
+                }
+            Py_DECREF(typeobj);
+        }
+        Py_DECREF(bytes);
+    }
+    set_shareable(self, ret);
+    return ret;
+}
+
+
+// CBORDecoder.decode_typed_array(self, typecode, byteswap)
+static PyObject *
+CBORDecoder_decode_typed_array(CBORDecoderObject *self, PyObject *args)
+{
+    unsigned char typecode;
+    bool byteswap;
+
+    if (!PyArg_ParseTuple(args, "Bp", &typecode, &byteswap))
+        return NULL;
+    return decode_typed_array(self, typecode, byteswap);
+}
+
+
 // CBORDecoder.decode_set(self)
 static PyObject *
 CBORDecoder_decode_set(CBORDecoderObject *self)
@@ -1780,6 +1839,8 @@ static PyMethodDef CBORDecoder_methods[] = {
         "decode a shareable value from the input"},
     {"decode_sharedref", (PyCFunction) CBORDecoder_decode_sharedref, METH_NOARGS,
         "decode a shared reference from the input"},
+    {"decode_typed_array", (PyCFunction) CBORDecoder_decode_typed_array, METH_VARARGS,
+        "decode a typed array from the input"},
     {"decode_set", (PyCFunction) CBORDecoder_decode_set, METH_NOARGS,
         "decode a set or frozenset from the input"},
     {"decode_ipaddress", (PyCFunction) CBORDecoder_decode_ipaddress, METH_NOARGS,

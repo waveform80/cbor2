@@ -1,5 +1,9 @@
-from .compat import Mapping, recursive_repr
+from __future__ import division
+
+import struct
 from functools import total_ordering
+
+from .compat import Mapping, recursive_repr
 
 
 class CBORError(ValueError):
@@ -144,3 +148,27 @@ class BreakMarkerType(object):
 #: Represents the "undefined" value.
 undefined = UndefinedType()
 break_marker = BreakMarkerType()
+
+
+def struct_type(size, signed):
+    size //= 8
+    codes = 'BHILQ'
+    if signed:
+        codes = codes.lower()
+    for code in codes:
+        if struct.calcsize(code) == size:
+            return code
+    raise ValueError('unable to find typecode for %s %d bits' %
+                     (('unsigned', 'signed')[signed], size))
+
+
+uint8 = 'B'
+uint16 = struct_type(16, False)
+uint32 = struct_type(32, False)
+uint64 = struct_type(64, False)
+sint8 = 'b'
+sint16 = struct_type(16, True)
+sint32 = struct_type(32, True)
+sint64 = struct_type(64, True)
+float32 = 'f'
+float64 = 'd'

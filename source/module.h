@@ -1,8 +1,18 @@
 #include <Python.h>
 #if PY_MAJOR_VERSION < 3
-#error "_cbor2 doesn't support the Python 2.x API"
-#elif PY_MAJOR_VERSION == 3 && PY_MAJOR_VERSION < 3
-#error "_cbor2 requires Python 3.3 or newer"
+#  error "_cbor2 doesn't support the Python 2.x API"
+#elif PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 3
+#  error "_cbor2 requires Python 3.3 or newer"
+#elif PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION < 4
+// Python 3.3 doesn't define PY_BIG_ENDIAN and PY_LITTLE_ENDIAN, but does
+// include the WORDS_BIGENDIAN define
+#  ifdef WORDS_BIGENDIAN
+#    define PY_BIG_ENDIAN 1
+#    define PY_LITTLE_ENDIAN 0
+#  else
+#    define PY_BIG_ENDIAN 0
+#    define PY_LITTLE_ENDIAN 1
+#  endif
 #endif
 
 // structure of the lead-byte for all CBOR records
@@ -14,6 +24,21 @@ typedef
         };
         char byte;
     } LeadByte;
+
+// structure for construction of typed array tag-numbers; see reference at
+// https://datatracker.ietf.org/doc/draft-ietf-cbor-array-tags/?include_text=1
+// for full explanation of type codes
+typedef
+    union {
+        struct {
+            unsigned int ll: 2;     // length code
+            unsigned int e: 1;      // 0=big endian, 1=little endian
+            unsigned int s: 1;      // 0=unsigned/float, 1=signed int
+            unsigned int f: 1;      // 0=int type, 1=float type
+            unsigned int head: 3;   // set to 2 (0b010)
+        };
+        char byte;
+    } TypedArrayTag;
 
 // break_marker singleton
 extern PyObject _break_marker_obj;
@@ -31,10 +56,12 @@ extern PyTypeObject CBORSimpleValueType;
 // Various interned strings
 extern PyObject *_CBOR2_empty_bytes;
 extern PyObject *_CBOR2_empty_str;
+extern PyObject *_CBOR2_str_array;
 extern PyObject *_CBOR2_str_as_string;
 extern PyObject *_CBOR2_str_as_tuple;
 extern PyObject *_CBOR2_str_bit_length;
 extern PyObject *_CBOR2_str_bytes;
+extern PyObject *_CBOR2_str_byteswap;
 extern PyObject *_CBOR2_str_BytesIO;
 extern PyObject *_CBOR2_str_canonical_encoders;
 extern PyObject *_CBOR2_str_compile;
@@ -98,6 +125,7 @@ extern PyObject *_CBOR2_ip_network;
 extern PyObject *_CBOR2_urlsplit;
 extern PyObject *_CBOR2_standard_b64decode;
 extern PyObject *_CBOR2_urlsafe_b64decode;
+extern PyObject *_CBOR2_array;
 
 // Initializers for the cached references above
 int _CBOR2_init_timezone_utc(void); // also handles timezone
@@ -110,6 +138,7 @@ int _CBOR2_init_Parser(void);
 int _CBOR2_init_re_compile(void); // also handles datestr_re
 int _CBOR2_init_ip_address(void);
 int _CBOR2_init_urlsplit(void); // also handles {standard,urlsafe}_b64decode
+int _CBOR2_init_array(void);
 
 int init_default_encoders(void);
 int init_canonical_encoders(void);

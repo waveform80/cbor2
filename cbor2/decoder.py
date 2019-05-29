@@ -1,4 +1,5 @@
 import re
+import sys
 import struct
 from collections import Mapping
 from datetime import datetime, timedelta
@@ -6,8 +7,16 @@ from io import BytesIO
 
 from .compat import timezone, range, byte_as_integer, unpack_float16
 from .types import (
-    CBORDecodeError, CBORTag, undefined, break_marker, CBORSimpleValue,
-    FrozenDict)
+    CBORDecodeError,
+    CBORTag,
+    undefined,
+    break_marker,
+    CBORSimpleValue,
+    FrozenDict,
+    uint8, uint16, uint32, uint64,
+    sint8, sint16, sint32, sint64,
+    float32, float64,
+)
 
 timestamp_re = re.compile(r'^(\d{4})-(\d\d)-(\d\d)T(\d\d):(\d\d):(\d\d)'
                           r'(?:\.(\d+))?(?:Z|([+-]\d\d):(\d\d))$')
@@ -470,6 +479,14 @@ class CBORDecoder(object):
         from uuid import UUID
         return self.set_shareable(UUID(bytes=self._decode()))
 
+    def decode_typed_array(self, typecode, byteswap):
+        # Semantic tags 64..87
+        from array import array
+        result = array(typecode, self._decode())
+        if byteswap:
+            result.byteswap()
+        return self.set_shareable(result)
+
     def decode_set(self):
         # Semantic tag 258
         if self._immutable:
@@ -548,21 +565,40 @@ special_decoders = {
 }
 
 semantic_decoders = {
-    0:   CBORDecoder.decode_datetime_string,
-    1:   CBORDecoder.decode_epoch_datetime,
-    2:   CBORDecoder.decode_positive_bignum,
-    3:   CBORDecoder.decode_negative_bignum,
-    4:   CBORDecoder.decode_fraction,
-    5:   CBORDecoder.decode_bigfloat,
-    28:  CBORDecoder.decode_shareable,
-    29:  CBORDecoder.decode_sharedref,
-    30:  CBORDecoder.decode_rational,
-    32:  CBORDecoder.decode_url,
-    33:  CBORDecoder.decode_base64url_url,
-    34:  CBORDecoder.decode_base64_url,
-    35:  CBORDecoder.decode_regexp,
-    36:  CBORDecoder.decode_mime,
-    37:  CBORDecoder.decode_uuid,
+    0: CBORDecoder.decode_datetime_string,
+    1: CBORDecoder.decode_epoch_datetime,
+    2: CBORDecoder.decode_positive_bignum,
+    3: CBORDecoder.decode_negative_bignum,
+    4: CBORDecoder.decode_fraction,
+    5: CBORDecoder.decode_bigfloat,
+    28: CBORDecoder.decode_shareable,
+    29: CBORDecoder.decode_sharedref,
+    30: CBORDecoder.decode_rational,
+    32: CBORDecoder.decode_url,
+    33: CBORDecoder.decode_base64url_url,
+    34: CBORDecoder.decode_base64_url,
+    35: CBORDecoder.decode_regexp,
+    36: CBORDecoder.decode_mime,
+    37: CBORDecoder.decode_uuid,
+    64: lambda self: CBORDecoder.decode_typed_array(self, uint8, False),
+    65: lambda self: CBORDecoder.decode_typed_array(self, uint16, sys.byteorder == 'little'),
+    66: lambda self: CBORDecoder.decode_typed_array(self, uint32, sys.byteorder == 'little'),
+    67: lambda self: CBORDecoder.decode_typed_array(self, uint64, sys.byteorder == 'little'),
+    68: lambda self: CBORDecoder.decode_typed_array(self, uint8, False),
+    69: lambda self: CBORDecoder.decode_typed_array(self, uint16, sys.byteorder == 'big'),
+    70: lambda self: CBORDecoder.decode_typed_array(self, uint32, sys.byteorder == 'big'),
+    71: lambda self: CBORDecoder.decode_typed_array(self, uint64, sys.byteorder == 'big'),
+    72: lambda self: CBORDecoder.decode_typed_array(self, sint8, False),
+    73: lambda self: CBORDecoder.decode_typed_array(self, sint16, sys.byteorder == 'little'),
+    74: lambda self: CBORDecoder.decode_typed_array(self, sint32, sys.byteorder == 'little'),
+    75: lambda self: CBORDecoder.decode_typed_array(self, sint64, sys.byteorder == 'little'),
+    77: lambda self: CBORDecoder.decode_typed_array(self, sint16, sys.byteorder == 'big'),
+    78: lambda self: CBORDecoder.decode_typed_array(self, sint32, sys.byteorder == 'big'),
+    79: lambda self: CBORDecoder.decode_typed_array(self, sint64, sys.byteorder == 'big'),
+    81: lambda self: CBORDecoder.decode_typed_array(self, float32, sys.byteorder == 'little'),
+    82: lambda self: CBORDecoder.decode_typed_array(self, float64, sys.byteorder == 'little'),
+    85: lambda self: CBORDecoder.decode_typed_array(self, float32, sys.byteorder == 'big'),
+    86: lambda self: CBORDecoder.decode_typed_array(self, float64, sys.byteorder == 'big'),
     258: CBORDecoder.decode_set,
     260: CBORDecoder.decode_ipaddress,
     261: CBORDecoder.decode_ipnetwork,

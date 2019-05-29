@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, date
 from decimal import Decimal
 from email.mime.text import MIMEText
 from fractions import Fraction
+from array import array
 from uuid import UUID
 try:
     from ipaddress import ip_address, ip_network
@@ -18,8 +19,12 @@ import pytest
 
 from cbor2 import shareable_encoder
 from cbor2.compat import timezone, pack_float16
-from cbor2.types import FrozenDict
 from cbor2.compat import urlsplit
+from cbor2.types import (
+    FrozenDict,
+    uint8, uint16, uint32, uint64, sint8,
+    sint16, sint32, sint64, float32, float64,
+)
 
 
 def test_fp_attr(impl):
@@ -455,6 +460,74 @@ def test_tuple_key(impl):
 
 def test_dict_key(impl):
     assert impl.dumps({FrozenDict({2: 1}): u''}) == unhexlify('a1a1020160')
+
+
+@pytest.mark.skipif(sys.byteorder == 'little', reason="Test for big-endian platforms")
+@pytest.mark.parametrize('value, expected', [
+    (array(uint8, (2, 12, 255)), 'd84043020cff'),
+    (array(uint16, (2, 4, 8, 4, 16, 256)), 'd8414c000200040008000400100100'),
+    (array(uint32, (0, 65536)), 'd842480000000000010000'),
+    (array(uint64, (0, 4294967296)), 'd8435000000000000000000000000100000000'),
+    (array(sint8, (2, 12, -1)), 'd84843020cff'),
+    (array(sint16, (2, 4, 8, -4, 16, 256)), 'd8494c000200040008fffc00100100'),
+    (array(sint32, (-1, 65536)), 'd84a48ffffffff00010000'),
+    (array(sint64, (-1, 4294967296)), 'd84b50ffffffffffffffff0000000100000000'),
+    (array(float32, (0.0, -1.0, 1e38)), 'd8514c00000000bf8000007e967699'),
+    (array(float64, (-1.0, 1e40)), 'd85250bff0000000000000483d6329f1c35ca5'),
+], ids=[
+    'uint8',
+    'uint16',
+    'uint32',
+    'uint64',
+    'sint8',
+    'sint16',
+    'sint32',
+    'sint64',
+    'float32',
+    'float64',
+])
+def test_typed_array_be(impl, value, expected):
+    # XXX The following pytest.skip is only included to work-around a bug in
+    # pytest under python 3.3 (which prevents the decorator above from skipping
+    # correctly); remove when 3.3 support is dropped
+    if sys.byteorder == 'little':
+        pytest.skip("Test for big-endian platforms")
+    expected = unhexlify(expected)
+    assert impl.dumps(value) == expected
+
+
+@pytest.mark.skipif(sys.byteorder == 'big', reason="Test for little-endian platforms")
+@pytest.mark.parametrize('value, expected', [
+    (array(uint8, (2, 12, 255)), 'd84043020cff'),
+    (array(uint16, (2, 4, 8, 4, 16, 256)), 'd8454c020004000800040010000001'),
+    (array(uint32, (0, 65536)), 'd846480000000000000100'),
+    (array(uint64, (0, 4294967296)), 'd8475000000000000000000000000001000000'),
+    (array(sint8, (2, 12, -1)), 'd84843020cff'),
+    (array(sint16, (2, 4, 8, -4, 16, 256)), 'd84d4c020004000800fcff10000001'),
+    (array(sint32, (-1, 65536)), 'd84e48ffffffff00000100'),
+    (array(sint64, (-1, 4294967296)), 'd84f50ffffffffffffffff0000000001000000'),
+    (array(float32, (0.0, -1.0, 1e38)), 'd8554c00000000000080bf9976967e'),
+    (array(float64, (-1.0, 1e40)), 'd85650000000000000f0bfa55cc3f129633d48'),
+], ids=[
+    'uint8',
+    'uint16',
+    'uint32',
+    'uint64',
+    'sint8',
+    'sint16',
+    'sint32',
+    'sint64',
+    'float32',
+    'float64',
+])
+def test_typed_array_le(impl, value, expected):
+    # XXX The following pytest.skip is only included to work-around a bug in
+    # pytest under python 3.3 (which prevents the decorator above from skipping
+    # correctly); remove when 3.3 support is dropped
+    if sys.byteorder == 'big':
+        pytest.skip("Test for little-endian platforms")
+    expected = unhexlify(expected)
+    assert impl.dumps(value) == expected
 
 
 @pytest.mark.parametrize('frozen', [False, True], ids=['set', 'frozenset'])

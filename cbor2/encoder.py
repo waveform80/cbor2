@@ -1,6 +1,7 @@
 from __future__ import division
 
 import re
+import sys
 import math
 import struct
 from collections import OrderedDict, defaultdict
@@ -382,6 +383,36 @@ class CBOREncoder(object):
         # Semantic tag 37
         self.encode_semantic(CBORTag(37, value.bytes))
 
+    def encode_typed_array(self, value):
+        # Semantic tags 64..87
+        try:
+            f = value.typecode in 'fd'
+            s = value.typecode in 'bhilq'
+            e = sys.byteorder == 'little' and value.itemsize > 1
+            ll = {
+                (0, 1): 0,
+                (0, 2): 1,
+                (0, 4): 2,
+                (0, 8): 3,
+                (1, 4): 1,
+                (1, 8): 2,
+            }[f, value.itemsize]
+        except KeyError:
+            raise CBOREncodeError(
+                "unsupported array typecode %s" % value.typecode)
+        else:
+            tag = (
+                0x40 |    # header
+                f << 4 |  # 1=float
+                s << 3 |  # 1=signed int
+                e << 2 |  # 1=little endian
+                ll)
+            try:
+                bytestr = value.tobytes()
+            except AttributeError:
+                bytestr = value.tostring()
+            self.encode_semantic(CBORTag(tag, bytestr))
+
     def encode_set(self, value):
         # Semantic tag 258
         self.encode_semantic(CBORTag(258, tuple(value)))
@@ -487,6 +518,7 @@ default_encoders = OrderedDict([
     (('ipaddress', 'IPv6Address'),  CBOREncoder.encode_ipaddress),
     (('ipaddress', 'IPv4Network'),  CBOREncoder.encode_ipnetwork),
     (('ipaddress', 'IPv6Network'),  CBOREncoder.encode_ipnetwork),
+    (('array', 'array'),            CBOREncoder.encode_typed_array),
     (SplitResult,                   CBOREncoder.encode_url),
     (ParseResult,                   CBOREncoder.encode_url),
     (CBORSimpleValue,               CBOREncoder.encode_simple_value),

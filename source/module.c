@@ -612,15 +612,37 @@ error2:
     return -1;
 }
 
+
+int
+_CBOR2_init_array(void)
+{
+    PyObject *array;
+
+    // from array import array
+    array = PyImport_ImportModule("array");
+    if (!array)
+        goto error;
+    _CBOR2_array = PyObject_GetAttr(array, _CBOR2_str_array);
+    Py_DECREF(array);
+    if (!_CBOR2_array)
+        goto error;
+    return 0;
+error:
+    PyErr_SetString(PyExc_ImportError, "unable to import array from array");
+    return -1;
+}
+
 
 // Module definition /////////////////////////////////////////////////////////
 
 PyObject *_CBOR2_empty_bytes = NULL;
 PyObject *_CBOR2_empty_str = NULL;
+PyObject *_CBOR2_str_array = NULL;
 PyObject *_CBOR2_str_as_string = NULL;
 PyObject *_CBOR2_str_as_tuple = NULL;
 PyObject *_CBOR2_str_bit_length = NULL;
 PyObject *_CBOR2_str_bytes = NULL;
+PyObject *_CBOR2_str_byteswap = NULL;
 PyObject *_CBOR2_str_BytesIO = NULL;
 PyObject *_CBOR2_str_canonical_encoders = NULL;
 PyObject *_CBOR2_str_compile = NULL;
@@ -682,6 +704,7 @@ PyObject *_CBOR2_ip_network = NULL;
 PyObject *_CBOR2_urlsplit = NULL;
 PyObject *_CBOR2_standard_b64decode = NULL;
 PyObject *_CBOR2_urlsafe_b64decode = NULL;
+PyObject *_CBOR2_array = NULL;
 
 PyObject *_CBOR2_default_encoders = NULL;
 PyObject *_CBOR2_canonical_encoders = NULL;
@@ -703,6 +726,7 @@ cbor2_free(PyObject *m)
     Py_CLEAR(_CBOR2_urlsplit);
     Py_CLEAR(_CBOR2_standard_b64decode);
     Py_CLEAR(_CBOR2_urlsafe_b64decode);
+    Py_CLEAR(_CBOR2_array);
     Py_CLEAR(_CBOR2_CBOREncodeError);
     Py_CLEAR(_CBOR2_CBORDecodeError);
     Py_CLEAR(_CBOR2_CBORError);
@@ -888,10 +912,12 @@ PyInit__cbor2(void)
             !(_CBOR2_str_##name = PyUnicode_InternFromString(#name))) \
         goto error;
 
+    INTERN_STRING(array);
     INTERN_STRING(as_string);
     INTERN_STRING(as_tuple);
     INTERN_STRING(bit_length);
     INTERN_STRING(bytes);
+    INTERN_STRING(byteswap);
     INTERN_STRING(BytesIO);
     INTERN_STRING(canonical_encoders);
     INTERN_STRING(compile);

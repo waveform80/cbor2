@@ -1241,6 +1241,61 @@ CBOREncoder_encode_uuid(CBOREncoderObject *self, PyObject *value)
 
 
 static PyObject *
+encode_typed_array(CBOREncoderObject *self, PyObject *value)
+{
+    PyObject *ret = NULL;
+    TypedArrayTag tagnum;
+    Py_buffer buf;
+
+    if (PyObject_GetBuffer(value, &buf, PyBUF_FORMAT | PyBUF_CONTIG_RO) == 0) {
+        tagnum.byte = 64;
+        switch (buf.format[0]) {
+            case 'f':
+            case 'd': tagnum.f = 1; break;
+            case 'b':
+            case 'h':
+            case 'i':
+            case 'l':
+            case 'q': tagnum.s = 1; break;
+        }
+        switch (buf.itemsize) {
+            case 1: tagnum.ll = 0;            break;
+            case 2: tagnum.ll = 1 - tagnum.f; break;
+            case 4: tagnum.ll = 2 - tagnum.f; break;
+            case 8: tagnum.ll = 3 - tagnum.f; break;
+            default:
+                PyErr_Format(_CBOR2_CBOREncodeError,
+                        "unsupported array typecode %s", buf.format);
+                break;
+        }
+        if (buf.itemsize > 1)
+            tagnum.e = PY_LITTLE_ENDIAN;
+        if (!PyErr_Occurred()) {
+            if (encode_length(self, 6, tagnum.byte) == 0) {
+                if (encode_length(self, 2, buf.len) == 0) {
+                    if (fp_write(self, (const char *) buf.buf, buf.len) == 0) {
+                        Py_INCREF(Py_None);
+                        ret = Py_None;
+                    }
+                }
+            }
+        }
+        PyBuffer_Release(&buf);
+    }
+    return ret;
+}
+
+
+// CBOREncoder.encode_typed_array(self, value)
+static PyObject *
+CBOREncoder_encode_typed_array(CBOREncoderObject *self, PyObject *value)
+{
+    // semantic types 64..87
+    return encode_shared(self, &encode_typed_array, value);
+}
+
+
+static PyObject *
 encode_set(CBOREncoderObject *self, PyObject *value)
 {
     Py_ssize_t length;
@@ -1931,6 +1986,8 @@ static PyMethodDef CBOREncoder_methods[] = {
         "encode the specified MIME message object to the output"},
     {"encode_uuid", (PyCFunction) CBOREncoder_encode_uuid, METH_O,
         "encode the specified UUID to the output"},
+    {"encode_typed_array", (PyCFunction) CBOREncoder_encode_typed_array, METH_O,
+        "encode the specified array to the output"},
     {"encode_set", (PyCFunction) CBOREncoder_encode_set, METH_O,
         "encode the specified set to the output"},
     {"encode_ipaddress", (PyCFunction) CBOREncoder_encode_ipaddress, METH_O,

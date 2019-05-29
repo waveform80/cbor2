@@ -10,6 +10,7 @@ from email.message import Message
 from fractions import Fraction
 from io import BytesIO
 from uuid import UUID
+from array import array
 try:
     from ipaddress import ip_address, ip_network
 except ImportError:
@@ -19,7 +20,11 @@ except ImportError:
 import pytest
 
 from cbor2.compat import timezone, urlsplit
-from cbor2.types import FrozenDict
+from cbor2.types import (
+    FrozenDict,
+    uint8, uint16, uint32, uint64, sint8,
+    sint16, sint32, sint64, float32, float64,
+)
 
 
 def test_fp_attr(impl):
@@ -540,6 +545,54 @@ def test_nested_exception(impl):
             r"(unhashable type: '(_?cbor2\.)?CBORTag'"
             r"|"
             r"'(_?cbor2\.)?CBORTag' objects are unhashable)")
+
+
+@pytest.mark.parametrize('payload, expected', [
+    ('d84043020cff',                           array(uint8, (2, 12, 255))),
+    ('d8414c000200040008000400100100',         array(uint16, (2, 4, 8, 4, 16, 256))),
+    ('d842480000000000010000',                 array(uint32, (0, 65536))),
+    ('d8435000000000000000000000000100000000', array(uint64, (0, 4294967296))),
+    ('d84843020cff',                           array(sint8, (2, 12, -1))),
+    ('d8494c000200040008fffc00100100',         array(sint16, (2, 4, 8, -4, 16, 256))),
+    ('d84a48ffffffff00010000',                 array(sint32, (-1, 65536))),
+    ('d84b50ffffffffffffffff0000000100000000', array(sint64, (-1, 4294967296))),
+    ('d8514c00000000bf8000007e967699',         array(float32, (0.0, -1.0, 1e38))),
+    ('d85250bff0000000000000483d6329f1c35ca5', array(float64, (-1.0, 1e40))),
+    ('d84043020cff',                           array(uint8, (2, 12, 255))),
+    ('d8454c020004000800040010000001',         array(uint16, (2, 4, 8, 4, 16, 256))),
+    ('d846480000000000000100',                 array(uint32, (0, 65536))),
+    ('d8475000000000000000000000000001000000', array(uint64, (0, 4294967296))),
+    ('d84843020cff',                           array(sint8, (2, 12, -1))),
+    ('d84d4c020004000800fcff10000001',         array(sint16, (2, 4, 8, -4, 16, 256))),
+    ('d84e48ffffffff00000100',                 array(sint32, (-1, 65536))),
+    ('d84f50ffffffffffffffff0000000001000000', array(sint64, (-1, 4294967296))),
+    ('d8554c00000000000080bf9976967e',         array(float32, (0.0, -1.0, 1e38))),
+    ('d85650000000000000f0bfa55cc3f129633d48', array(float64, (-1.0, 1e40))),
+], ids=[
+    'uint8_be',
+    'uint16_be',
+    'uint32_be',
+    'uint64_be',
+    'sint8_be',
+    'sint16_be',
+    'sint32_be',
+    'sint64_be',
+    'float32_be',
+    'float64_be',
+    'uint8_le',
+    'uint16_le',
+    'uint32_le',
+    'uint64_le',
+    'sint8_le',
+    'sint16_le',
+    'sint32_le',
+    'sint64_le',
+    'float32_le',
+    'float64_le',
+])
+def test_typed_array(impl, payload, expected):
+    payload = unhexlify(payload)
+    assert impl.loads(payload) == expected
 
 
 def test_set(impl):
