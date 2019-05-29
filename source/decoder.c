@@ -852,24 +852,24 @@ decode_semantic(CBORDecoderObject *self, uint8_t subtype)
 
     if (decode_length(self, subtype, &tagnum, NULL) == 0) {
         switch (tagnum) {
-            case 0:   ret = CBORDecoder_decode_datetime_string(self); break;
-            case 1:   ret = CBORDecoder_decode_epoch_datetime(self);  break;
-            case 2:   ret = CBORDecoder_decode_positive_bignum(self); break;
-            case 3:   ret = CBORDecoder_decode_negative_bignum(self); break;
-            case 4:   ret = CBORDecoder_decode_fraction(self);        break;
-            case 5:   ret = CBORDecoder_decode_bigfloat(self);        break;
-            case 28:  ret = CBORDecoder_decode_shareable(self);       break;
-            case 29:  ret = CBORDecoder_decode_sharedref(self);       break;
-            case 30:  ret = CBORDecoder_decode_rational(self);        break;
-            case 32:  ret = CBORDecoder_decode_url(self);             break;
-            case 33:  ret = CBORDecoder_decode_base64url_url(self);   break;
-            case 34:  ret = CBORDecoder_decode_base64_url(self);      break;
-            case 35:  ret = CBORDecoder_decode_regexp(self);          break;
-            case 36:  ret = CBORDecoder_decode_mime(self);            break;
-            case 37:  ret = CBORDecoder_decode_uuid(self);            break;
-            case 258: ret = CBORDecoder_decode_set(self);             break;
-            case 260: ret = CBORDecoder_decode_ipaddress(self);       break;
-            case 261: ret = CBORDecoder_decode_ipnetwork(self);       break;
+            case 0:   return CBORDecoder_decode_datetime_string(self);
+            case 1:   return CBORDecoder_decode_epoch_datetime(self);
+            case 2:   return CBORDecoder_decode_positive_bignum(self);
+            case 3:   return CBORDecoder_decode_negative_bignum(self);
+            case 4:   return CBORDecoder_decode_fraction(self);
+            case 5:   return CBORDecoder_decode_bigfloat(self);
+            case 28:  return CBORDecoder_decode_shareable(self);
+            case 29:  return CBORDecoder_decode_sharedref(self);
+            case 30:  return CBORDecoder_decode_rational(self);
+            case 32:  return CBORDecoder_decode_url(self);
+            case 33:  return CBORDecoder_decode_base64url_url(self);
+            case 34:  return CBORDecoder_decode_base64_url(self);
+            case 35:  return CBORDecoder_decode_regexp(self);
+            case 36:  return CBORDecoder_decode_mime(self);
+            case 37:  return CBORDecoder_decode_uuid(self);
+            case 258: return CBORDecoder_decode_set(self);
+            case 260: return CBORDecoder_decode_ipaddress(self);
+            case 261: return CBORDecoder_decode_ipnetwork(self);
             default:
                 tag = CBORTag_New(tagnum);
                 if (tag) {

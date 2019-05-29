@@ -31,7 +31,7 @@
 
 typedef PyObject * (EncodeFunction)(CBOREncoderObject *, PyObject *);
 
-static int encode_semantic(CBOREncoderObject *, const uint64_t, PyObject *);
+static PyObject * encode_semantic(CBOREncoderObject *, const uint64_t, PyObject *);
 static PyObject * encode_shared(CBOREncoderObject *, EncodeFunction *, PyObject *);
 
 static PyObject * CBOREncoder_encode_to_bytes(CBOREncoderObject *, PyObject *);
@@ -538,10 +538,7 @@ encode_larger_int(CBOREncoderObject *self, PyObject *value)
                                     value, "to_bytes", "ls",
                                     (length + 7) / 8, "big");
                             if (buf) {
-                                if (encode_semantic(self, major_tag, buf) == 0) {
-                                    Py_INCREF(Py_None);
-                                    ret = Py_None;
-                                }
+                                ret = encode_semantic(self, major_tag, buf);
                                 Py_DECREF(buf);
                             }
                         }
@@ -779,16 +776,12 @@ CBOREncoder_encode_map(CBOREncoderObject *self, PyObject *value)
 
 // Semantic encoders /////////////////////////////////////////////////////////
 
-static int
+static PyObject *
 encode_semantic(CBOREncoderObject *self, const uint64_t tag, PyObject *value)
 {
-    PyObject *obj;
-
     if (encode_length(self, 6, tag) == -1)
-        return -1;
-    obj = CBOREncoder_encode(self, value);
-    Py_XDECREF(obj);
-    return obj == NULL ? -1 : 0;
+        return NULL;
+    return CBOREncoder_encode(self, value);
 }
 
 
@@ -802,9 +795,7 @@ CBOREncoder_encode_semantic(CBOREncoderObject *self, PyObject *value)
     if (!CBORTag_CheckExact(value))
         return NULL;
     tag = (CBORTagObject *) value;
-    if (encode_semantic(self, tag->tag, tag->value) == -1)
-        return NULL;
-    Py_RETURN_NONE;
+    return encode_semantic(self, tag->tag, tag->value);
 }
 
 
@@ -1022,10 +1013,7 @@ encode_decimal_digits(CBOREncoderObject *self, PyObject *value)
                         self->value_sharing = false;
                         value = PyTuple_Pack(2, exp, sig);
                         if (value) {
-                            if (encode_semantic(self, 4, value) == 0) {
-                                Py_INCREF(Py_None);
-                                ret = Py_None;
-                            }
+                            ret = encode_semantic(self, 4, value);
                             Py_DECREF(value);
                         }
                         self->value_sharing = sharing;
@@ -1177,10 +1165,7 @@ CBOREncoder_encode_rational(CBOREncoderObject *self, PyObject *value)
             if (tuple) {
                 sharing = self->value_sharing;
                 self->value_sharing = false;
-                if (encode_semantic(self, 30, tuple) == 0) {
-                    Py_INCREF(Py_None);
-                    ret = Py_None;
-                }
+                ret = encode_semantic(self, 30, tuple);
                 self->value_sharing = sharing;
                 Py_DECREF(tuple);
             }
@@ -1200,10 +1185,7 @@ CBOREncoder_encode_url(CBOREncoderObject *self, PyObject *value)
 
     url = PyObject_CallMethodObjArgs(value, _CBOR2_str_geturl, NULL);
     if (url) {
-        if (encode_semantic(self, 32, url) == 0) {
-            Py_INCREF(Py_None);
-            ret = Py_None;
-        }
+        ret = encode_semantic(self, 32, url);
         Py_DECREF(url);
     }
     return ret;
@@ -1219,10 +1201,7 @@ CBOREncoder_encode_regexp(CBOREncoderObject *self, PyObject *value)
 
     pattern = PyObject_GetAttr(value, _CBOR2_str_pattern);
     if (pattern) {
-        if (encode_semantic(self, 35, pattern) == 0) {
-            Py_INCREF(Py_None);
-            ret = Py_None;
-        }
+        ret = encode_semantic(self, 35, pattern);
         Py_DECREF(pattern);
     }
     return ret;
@@ -1238,10 +1217,7 @@ CBOREncoder_encode_mime(CBOREncoderObject *self, PyObject *value)
 
     buf = PyObject_CallMethodObjArgs(value, _CBOR2_str_as_string, NULL);
     if (buf) {
-        if (encode_semantic(self, 36, buf) == 0) {
-            Py_INCREF(Py_None);
-            ret = Py_None;
-        }
+        ret = encode_semantic(self, 36, buf);
         Py_DECREF(buf);
     }
     return ret;
@@ -1257,10 +1233,7 @@ CBOREncoder_encode_uuid(CBOREncoderObject *self, PyObject *value)
 
     bytes = PyObject_GetAttr(value, _CBOR2_str_bytes);
     if (bytes) {
-        if (encode_semantic(self, 37, bytes) == 0) {
-            Py_INCREF(Py_None);
-            ret = Py_None;
-        }
+        ret = encode_semantic(self, 37, bytes);
         Py_DECREF(bytes);
     }
     return ret;
@@ -1317,10 +1290,7 @@ encode_ipaddress(CBOREncoderObject *self, PyObject *value)
 
     bytes = PyObject_GetAttr(value, _CBOR2_str_packed);
     if (bytes) {
-        if (encode_semantic(self, 260, bytes) == 0) {
-            Py_INCREF(Py_None);
-            ret = Py_None;
-        }
+        ret = encode_semantic(self, 260, bytes);
         Py_DECREF(bytes);
     }
     return ret;
@@ -1349,12 +1319,8 @@ encode_ipnetwork(CBOREncoderObject *self, PyObject *value)
             if (prefixlen) {
                 map = PyDict_New();
                 if (map) {
-                    if (PyDict_SetItem(map, bytes, prefixlen) == 0) {
-                        if (encode_semantic(self, 261, map) == 0) {
-                            Py_INCREF(Py_None);
-                            ret = Py_None;
-                        }
-                    }
+                    if (PyDict_SetItem(map, bytes, prefixlen) == 0)
+                        ret = encode_semantic(self, 261, map);
                     Py_DECREF(map);
                 }
                 Py_DECREF(prefixlen);
