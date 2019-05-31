@@ -383,12 +383,16 @@ class CBOREncoder(object):
         # Semantic tag 37
         self.encode_semantic(CBORTag(37, value.bytes))
 
-    def encode_typed_array(self, value):
-        # Semantic tags 64..87
+    def typed_array_tag(self, is_float, is_signed, itemsize, byteorder='='):
+        f = bool(is_float)
+        s = bool(is_signed)
+        e = (itemsize > 1) and {
+            '>': False,
+            '<': True,
+            '=': sys.byteorder == 'little',
+            '@': sys.byteorder == 'little',
+        }[byteorder]
         try:
-            f = value.typecode in 'fd'
-            s = value.typecode in 'bhilq'
-            e = sys.byteorder == 'little' and value.itemsize > 1
             ll = {
                 (0, 1): 0,
                 (0, 2): 1,
@@ -399,19 +403,30 @@ class CBOREncoder(object):
             }[f, value.itemsize]
         except KeyError:
             raise CBOREncodeError(
-                "unsupported array typecode %s" % value.typecode)
-        else:
-            tag = (
-                0x40 |    # header
-                f << 4 |  # 1=float
-                s << 3 |  # 1=signed int
-                e << 2 |  # 1=little endian
-                ll)
-            try:
-                bytestr = value.tobytes()
-            except AttributeError:
-                bytestr = value.tostring()
-            self.encode_semantic(CBORTag(tag, bytestr))
+                "unsupported array itemsize %d" % itemsize)
+        return 0x40 | (f << 4) | (s << 3) | (e << 2) | ll
+
+    def encode_ndarray(self, value):
+        # Semantic tag 40
+        import numpy as np
+        tag = self.typed_array_tag(
+            value.dtype.char in np.typecodes['Float'],
+            value.dtype.char in np.typecodes['Integer'],
+            value.dtype.itemsize)
+        self.encode_semantic(
+            CBORTag(40, [value.shape, CBORTag(tag, value.tobytes())]))
+
+    def encode_typed_array(self, value):
+        # Semantic tags 64..87
+        tag = self.typed_array_tag(
+            value.typecode in 'fd',
+            value.typecode in 'bhilq',
+            value.itemsize)
+        try:
+            bytestr = value.tobytes()
+        except AttributeError:
+            bytestr = value.tostring()
+        self.encode_semantic(CBORTag(tag, bytestr))
 
     def encode_set(self, value):
         # Semantic tag 258
@@ -519,6 +534,7 @@ default_encoders = OrderedDict([
     (('ipaddress', 'IPv4Network'),  CBOREncoder.encode_ipnetwork),
     (('ipaddress', 'IPv6Network'),  CBOREncoder.encode_ipnetwork),
     (('array', 'array'),            CBOREncoder.encode_typed_array),
+    (('numpy', 'ndarray'),          CBOREncoder.encode_ndarray),
     (SplitResult,                   CBOREncoder.encode_url),
     (ParseResult,                   CBOREncoder.encode_url),
     (CBORSimpleValue,               CBOREncoder.encode_simple_value),

@@ -479,6 +479,16 @@ class CBORDecoder(object):
         from uuid import UUID
         return self.set_shareable(UUID(bytes=self._decode()))
 
+    def decode_ndarray(self, ):
+        # Semantic tags 40 & 1040
+        import numpy as np
+        try:
+            shape, data = self._decode()
+        except (TypeError, ValueError):
+            raise CBORDecodeError("invalid multi-dimensional array data")
+        # figure out numpy-style typecode
+        # reconstruct from typed-array decode (frombuffer) or decode of list
+
     def decode_typed_array(self, typecode, byteswap):
         # Semantic tags 64..87
         from array import array
