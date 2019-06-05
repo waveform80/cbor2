@@ -400,7 +400,7 @@ class CBOREncoder(object):
                 (0, 8): 3,
                 (1, 4): 1,
                 (1, 8): 2,
-            }[f, value.itemsize]
+            }[f, itemsize]
         except KeyError:
             raise CBOREncodeError(
                 "unsupported array itemsize %d" % itemsize)

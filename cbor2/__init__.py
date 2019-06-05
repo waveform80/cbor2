@@ -10,6 +10,7 @@ from .types import (  # noqa
 )
 
 try:
+    raise ImportError()
     from _cbor2 import *  # noqa
 except ImportError:
     # Couldn't import the optimized C version; ignore the failure and leave the

@@ -479,8 +479,19 @@ class CBORDecoder(object):
         from uuid import UUID
         return self.set_shareable(UUID(bytes=self._decode()))
 
-    def decode_ndarray(self, ):
-        # Semantic tags 40 & 1040
+    def decode_row_order(self):
+        # Semantic tag 40
+        import numpy as np
+        try:
+            shape, data = self._decode()
+        except (TypeError, ValueError):
+            raise CBORDecodeError("invalid multi-dimensional array data")
+        # figure out numpy-style typecode
+        # reconstruct from typed-array decode (frombuffer) or decode of list
+
+    def decode_col_order(self):
+        # Semantic tag 1040
+        from array import array
         import numpy as np
         try:
             shape, data = self._decode()
@@ -590,6 +601,7 @@ semantic_decoders = {
     35: CBORDecoder.decode_regexp,
     36: CBORDecoder.decode_mime,
     37: CBORDecoder.decode_uuid,
+    40: CBORDecoder.decode_row_order,
     64: lambda self: CBORDecoder.decode_typed_array(self, uint8, False),
     65: lambda self: CBORDecoder.decode_typed_array(self, uint16, sys.byteorder == 'little'),
     66: lambda self: CBORDecoder.decode_typed_array(self, uint32, sys.byteorder == 'little'),
@@ -612,6 +624,7 @@ semantic_decoders = {
     258: CBORDecoder.decode_set,
     260: CBORDecoder.decode_ipaddress,
     261: CBORDecoder.decode_ipnetwork,
+    1040: CBORDecoder.decode_col_order,
 }
 
 
