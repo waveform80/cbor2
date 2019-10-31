@@ -20,8 +20,9 @@ from .types import (
 
 def shareable_encoder(func):
     """
-    Wrap the given encoder function to gracefully handle cyclic data
-    structures.
+    Decorator function which wraps the given encoder function to gracefully
+    handle cyclic data structures. See :ref:`value_sharing` for an example of
+    usage.
 
     If value sharing is enabled, this marks the given value shared in the
     datastream on the first call. If the value has already been passed to this
@@ -40,38 +41,45 @@ class CBOREncoder(object):
     """
     The CBOREncoder class implements a fully featured `CBOR`_ encoder with
     several extensions for handling shared references, big integers, rational
-    numbers and so on. Typically the class is not used directly, but the
-    :func:`dump` and :func:`dumps` functions are called to indirectly construct
-    and use the class.
+    numbers and more (see :ref:`supported_types`).
 
-    When the class is constructed manually, the main entry points are
+    Typically the class is not used directly, but the :func:`dump` and
+    :func:`dumps` functions are called to indirectly construct and use an
+    encoder. When the class is constructed manually, the main entry points are
     :meth:`encode` and :meth:`encode_to_bytes`.
 
+    .. _CBOR: https://cbor.io/
+
     :param bool datetime_as_timestamp:
-        set to ``True`` to serialize datetimes as UNIX timestamps (this makes
-        datetimes more concise on the wire, but loses the timezone information)
+        set to :data:`True` to serialize datetimes as UNIX timestamps (this
+        makes datetimes more concise on the wire, but loses the timezone
+        information)
     :param datetime.tzinfo timezone:
         the default timezone to use for serializing naive datetimes; if this is
         not specified naive datetimes will throw a :exc:`ValueError` when
         encoding is attempted
     :param bool value_sharing:
-        set to ``True`` to allow more efficient serializing of repeated values
-        and, more importantly, cyclic data structures, at the cost of extra
-        line overhead
+        set to :data:`True` to allow more efficient serializing of repeated
+        values and, more importantly, cyclic data structures, at the cost of
+        extra line overhead
     :param default:
         a callable that is called by the encoder with two arguments (the
         encoder instance and the value being encoded) when no suitable encoder
         has been found, and should use the methods on the encoder to encode any
         objects it wants to add to the data stream
     :param bool canonical:
-        when True, use "canonical" CBOR representation; this typically involves
-        sorting maps, sets, etc. into a pre-determined order ensuring that
-        serializations are comparable without decoding
-    :param bool date_as_datetime: set to ``True`` to serialize date objects as
-        datetimes (CBOR tag 0), which was the default behavior in previous
-        releases (cbor2 <= 4.1.2).
+        when :data:`True`, use "canonical" CBOR representation; this typically
+        involves sorting maps, sets, etc. into a pre-determined order ensuring
+        that serializations are comparable without decoding
+    :param bool date_as_datetime:
+        set to :data:`True` to serialize date objects as datetimes (CBOR
+        semantic tag 0), which was the default behavior in previous releases
 
-    .. _CBOR: https://cbor.io/
+    .. versionchanged:: 4.1.0
+        Added *canonical* parameter.
+
+    .. versionchanged:: 5.0.0
+        Added *date_as_datetime* parameter.
     """
 
     __slots__ = (
@@ -120,6 +128,13 @@ class CBOREncoder(object):
 
     @property
     def fp(self):
+        """
+        The file-like object that output will be written to.
+
+        This can be any object with a ``write`` method, which must accept a
+        single byte-string as an argument. Set from the mandatory argument in
+        the constructor.
+        """
         return self._fp_write.__self__
 
     @fp.setter
@@ -134,6 +149,13 @@ class CBOREncoder(object):
 
     @property
     def timezone(self):
+        """
+        The default timezone to use for serializing naïve datetimes.
+
+        Set from the *timezone* option in the constructor. If this is
+        :data:`None`, naïve datetimes will throw a :exc:`ValueError` when
+        encoding is attempted.
+        """
         return self._timezone
 
     @timezone.setter
@@ -145,6 +167,13 @@ class CBOREncoder(object):
 
     @property
     def default(self):
+        """
+        Callable invoked when no suitable encoder is found for a given type.
+
+        The callable must accept two arguments (the encoder instance and the
+        value being encoded), and should use the methods on the encoder to
+        encode any objects it wants to add to the data stream.
+        """
         return self._default
 
     @default.setter
@@ -156,13 +185,19 @@ class CBOREncoder(object):
 
     @property
     def canonical(self):
+        """
+        (read-only) When True, output "canonical" CBOR representation.
+
+        This typically involves sorting maps, sets, etc. into a pre-determined
+        order ensuring that serializations are comparable without decoding.
+        """
         return self._canonical
 
     @contextmanager
     def disable_value_sharing(self):
         """
-        Disable value sharing in the encoder for the duration of the context
-        block.
+        Context-manager which disables value sharing in the encoder for the
+        duration of the context block.
         """
         old_value_sharing = self.value_sharing
         self.value_sharing = False
@@ -170,12 +205,6 @@ class CBOREncoder(object):
         self.value_sharing = old_value_sharing
 
     def write(self, data):
-        """
-        Write bytes to the data stream.
-
-        :param bytes data:
-            the bytes to write
-        """
         self._fp_write(data)
 
     def encode(self, obj):
@@ -201,8 +230,8 @@ class CBOREncoder(object):
         """
         Encode the given object to a byte buffer and return its value as bytes.
 
-        This method was intended to be used from the ``default`` hook when an
-        object needs to be encoded separately from the rest but while still
+        This method was intended to be used from the :attr:`default` hook when
+        an object needs to be encoded separately from the rest but while still
         taking advantage of the shared value registry.
         """
         with BytesIO() as fp:
@@ -296,17 +325,15 @@ class CBOREncoder(object):
             self.encode(val)
 
     def encode_sortable_key(self, value):
-        """
-        Takes a key and calculates the length of its optimal byte
-        representation, along with the representation itself. This is used as
-        the sorting key in CBOR's canonical representations.
-        """
+        # Takes a key and calculates the length of its optimal byte
+        # representation, along with the representation itself. This is used as
+        # the sorting key in CBOR's canonical representations.
         encoded = self.encode_to_bytes(value)
         return len(encoded), encoded
 
     @shareable_encoder
     def encode_canonical_map(self, value):
-        "Reorder keys according to Canonical CBOR specification"
+        # Reorder keys according to Canonical CBOR specification
         keyed_keys = (
             (self.encode_sortable_key(key), key, value)
             for key, value in value.items()
@@ -506,13 +533,15 @@ canonical_encoders = OrderedDict([
 
 def dumps(obj, **kwargs):
     """
-    Serialize an object to a bytestring.
+    Return a byte-string containing the CBOR representation of *obj*. Any
+    keyword arguments will be passed to the :class:`CBOREncoder` constructor.
 
-    :param obj: the object to serialize
-    :param kwargs: keyword arguments passed to :class:`~.CBOREncoder`
-    :return: the serialized output
-    :rtype: bytes
-
+    :param obj:
+        the object to serialize
+    :param kwargs:
+        keyword arguments passed to :class:`CBOREncoder`
+    :rtype:
+        bytes
     """
     with BytesIO() as fp:
         dump(obj, fp, **kwargs)
@@ -521,11 +550,15 @@ def dumps(obj, **kwargs):
 
 def dump(obj, fp, **kwargs):
     """
-    Serialize an object to a file.
+    Write the CBOR representation of *obj* to the file-like object *fp*. This
+    is equivalent to ``CBOREncoder(fp).encode(obj)``. Any keyword arguments
+    will be passed to the :class:`CBOREncoder` constructor.
 
-    :param obj: the object to serialize
-    :param fp: a file-like object
-    :param kwargs: keyword arguments passed to :class:`~.CBOREncoder`
-
+    :param obj:
+        the object to serialize
+    :param fp:
+        any writable file-like object
+    :param kwargs:
+        keyword arguments passed to :class:`CBOREncoder`
     """
     CBOREncoder(fp, **kwargs).encode(obj)

@@ -17,12 +17,14 @@ class CBORDecoder(object):
     """
     The CBORDecoder class implements a fully featured `CBOR`_ decoder with
     several extensions for handling shared references, big integers, rational
-    numbers and so on. Typically the class is not used directly, but the
-    :func:`load` and :func:`loads` functions are called to indirectly construct
-    and use the class.
+    numbers and more (see :ref:`supported_types`).
 
-    When the class is constructed manually, the main entry points are
+    Typically the class is not used directly, but the :func:`load` and
+    :func:`loads` functions are called to indirectly construct and use the
+    class. When the class is constructed manually, the main entry points are
     :meth:`decode` and :meth:`decode_from_bytes`.
+
+    .. _CBOR: https://cbor.io/
 
     :param tag_hook:
         callable that takes 2 arguments: the decoder instance, and the
@@ -34,8 +36,6 @@ class CBORDecoder(object):
         dictionary. This callback is invoked for each deserialized
         :class:`dict` object. The return value is substituted for the dict in
         the deserialized output.
-
-    .. _CBOR: https://cbor.io/
     """
 
     __slots__ = (
@@ -55,14 +55,22 @@ class CBORDecoder(object):
     @property
     def immutable(self):
         """
-        Used by decoders to check if the calling context requires an immutable
-        type.  Object_hook or tag_hook should raise an exception if this flag
-        is set unless the result can be safely used as a dict key.
+        (read-only) Used by decoders to check if the calling context requires
+        an immutable type; :attr:`object_hook` or :attr:`tag_hook` should raise
+        an exception if this flag is set unless the result can be safely used
+        as a dict key.
         """
         return self._immutable
 
     @property
     def fp(self):
+        """
+        The file-like object that output will be read from.
+
+        This can be any object with a ``read`` method, which must accept an
+        integer number of bytes to read, and must return a byte-string of that
+        many bytes. Set from the mandatory argument in the constructor.
+        """
         return self._fp_read.__self__
 
     @fp.setter
@@ -77,6 +85,14 @@ class CBORDecoder(object):
 
     @property
     def tag_hook(self):
+        """
+        Callable invoked for any semantic tags for which there is no built-in
+        decoder.
+
+        Must accept 2 arguments: the decoder instance, and the :class:`CBORTag`
+        to be decoded. The return value is substituted for the :class:`CBORTag`
+        object in the deserialized output.
+        """
         return self._tag_hook
 
     @tag_hook.setter
@@ -88,6 +104,12 @@ class CBORDecoder(object):
 
     @property
     def object_hook(self):
+        """
+        Callable invoked for all decoded :class:`dict` instances.
+
+        Must accept 2 arguments: the decoder instance, and a dictionary. The
+        return value is substituted for the dict in the deserialized output.
+        """
         return self._object_hook
 
     @object_hook.setter
@@ -99,6 +121,13 @@ class CBORDecoder(object):
 
     @property
     def str_errors(self):
+        """
+        The error-handling mode when decoding unicode strings.
+
+        Set by the *str_errors* constructor parameter. Defaults to 'strict',
+        but may be set to 'error' or 'replace'. See :meth:`bytes.decode` for
+        more information.
+        """
         return self._str_errors
 
     @str_errors.setter
@@ -113,21 +142,19 @@ class CBORDecoder(object):
     def set_shareable(self, value):
         """
         Set the shareable value for the last encountered shared value marker,
-        if any. If the current shared index is ``None``, nothing is done.
+        if any. If the current shared index is :data:`None`, nothing is done.
+        See :ref:`value_sharing` for an example.
 
-        :param value: the shared value
-        :returns: the shared value to permit chaining
+        :param value:
+            the shared value
+        :returns:
+            the shared value to permit chaining
         """
         if self._share_index is not None:
             self._shareables[self._share_index] = value
         return value
 
     def read(self, amount):
-        """
-        Read bytes from the data stream.
-
-        :param int amount: the number of bytes to read
-        """
         data = self._fp_read(amount)
         if len(data) < amount:
             raise CBORDecodeEOF(
@@ -157,18 +184,16 @@ class CBORDecoder(object):
 
     def decode(self):
         """
-        Decode the next value from the stream.
-
-        :raises CBORDecodeError: if there is any problem decoding the stream
+        Decodes and returns the next value from the stream.
         """
         return self._decode()
 
     def decode_from_bytes(self, buf):
         """
-        Wrap the given bytestring as a file and call :meth:`decode` with it as
+        Wrap *buf* (a byte-string) as a file and call :meth:`decode` with it as
         the argument.
 
-        This method was intended to be used from the ``tag_hook`` hook when an
+        This method was intended to be used from the :attr:`tag_hook` when an
         object needs to be decoded separately from the rest but while still
         taking advantage of the shared value registry.
         """
@@ -547,14 +572,11 @@ semantic_decoders = {
 
 def loads(s, **kwargs):
     """
+    Return the object represented by the CBOR-encoded byte-string *s*.
     Deserialize an object from a bytestring.
 
-    :param bytes s:
-        the bytestring to deserialize
-    :param kwargs:
-        keyword arguments passed to :class:`CBORDecoder`
-    :return:
-        the deserialized object
+    :param bytes s: the bytestring to de-serialize
+    :param kwargs: keyword arguments passed to :class:`CBORDecoder`
     """
     with BytesIO(s) as fp:
         return CBORDecoder(fp, **kwargs).decode()
@@ -562,13 +584,11 @@ def loads(s, **kwargs):
 
 def load(fp, **kwargs):
     """
-    Deserialize an object from an open file.
+    Read the CBOR-encoded representation of an object from *fp* and return the
+    object (and any objects it may contain). This is equivalent to
+    ``CBORDecoder(fp).decode()``.
 
-    :param fp:
-        the input file (any file-like object)
-    :param kwargs:
-        keyword arguments passed to :class:`CBORDecoder`
-    :return:
-        the deserialized object
+    :param fp: any readable file-like object
+    :param kwargs: keyword arguments passed to :class:`CBORDecoder`
     """
     return CBORDecoder(fp, **kwargs).decode()

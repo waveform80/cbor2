@@ -35,8 +35,10 @@ class CBORTag(object):
     """
     Represents a CBOR semantic tag.
 
-    :param int tag: tag number
-    :param value: encapsulated value (any object)
+    :param int tag:
+        tag number
+    :param value:
+        encapsulated value (any object)
     """
 
     __slots__ = 'tag', 'value'
@@ -98,7 +100,8 @@ class FrozenDict(Mapping):
     """
     A hashable, immutable mapping type.
 
-    The arguments to ``FrozenDict`` are processed just like those to ``dict``.
+    The arguments to :class:`FrozenDict` are processed just like those to
+    :class:`dict`.
     """
 
     def __init__(self, *args, **kwargs):

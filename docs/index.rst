@@ -1,6 +1,5 @@
 .. include:: ../README.rst
-   :start-line: 7
-   :end-before: Project links
+   :start-line: 12
 
 Table of contents
 -----------------
@@ -10,6 +9,11 @@ Table of contents
 
    usage
    customizing
+   api
    versionhistory
 
-* :ref:`API reference <modindex>`
+Indices and tables
+------------------
+
+* :ref:`genindex`
+* :ref:`modindex`

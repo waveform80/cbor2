@@ -1,105 +1,181 @@
 Basic usage
 ===========
 
-Serializing and deserializing with cbor2 is pretty straightforward::
+.. currentmodule:: cbor2
 
-    from cbor2 import dumps, loads
+Serializing and deserializing with cbor2 is pretty straightforward, and works
+almost identically to the familiar :mod:`pickle` module::
 
-    # Serialize an object as a bytestring
-    data = dumps(['hello', 'world'])
+    >>> import cbor2
+    >>> cbor2.dumps(['hello', 'world'])
+    b'\x82ehelloeworld'
+    >>> cbor2.loads(b'\x82ehelloeworld')
+    ['hello', 'world']
 
-    # Deserialize a bytestring
-    obj = loads(data)
+The usual :func:`load`, :func:`loads`, :func:`dump`, and :func:`dumps`
+functions are all available:
 
-    # Efficiently deserialize from a file
-    with open('input.cbor', 'rb') as fp:
-        obj = load(fp)
-
-    # Efficiently serialize an object to a file
-    with open('output.cbor', 'wb') as fp:
-        dump(obj, fp)
+.. literalinclude:: examples/basic_dump_load.py
 
 Some data types, however, require extra considerations, as detailed below.
+
 
 String/bytes handling on Python 2
 ---------------------------------
 
-The ``str`` type is encoded as binary on Python 2. If you want to encode strings as text on
-Python 2, use unicode strings instead.
+The :class:`str` type is encoded as binary on Python 2. If you want to encode
+strings as text on Python 2, use the :class:`unicode` type instead.
+
 
 Date/time handling
 ------------------
 
-The CBOR specification does not support naïve datetimes (that is, datetimes where ``tzinfo`` is
-missing). When the encoder encounters such a datetime, it needs to know which timezone it belongs
-to. To this end, you can specify a default timezone by passing a :class:`~datetime.tzinfo` instance
-to :func:`~cbor2.encoder.dump`/:func:`~cbor2.encoder.dumps` call as the ``timezone`` argument.
-Decoded datetimes are always timezone aware.
+The CBOR specification does not support naïve datetimes (that is, datetimes
+where ``tzinfo`` is missing). When the encoder encounters such a datetime, it
+needs to know which timezone it belongs to. To this end, you can specify a
+default timezone by passing a :class:`~datetime.tzinfo` instance to the
+:func:`dump` or :func:`dumps` functions as the *timezone* argument. Decoded
+datetimes are always timezone aware.
 
-By default, datetimes are serialized in a manner that retains their timezone offsets. You can
-optimize the data stream size by passing ``datetime_as_timestamp=False`` to
-:func:`~cbor2.encoder.dump`/:func:`~cbor2.encoder.dumps`, but this causes the timezone offset
-information to be lost.
+By default, datetimes are serialized in a manner that retains their timezone
+offsets. You can optimize the data stream size by setting
+*datetime_as_timestamp* to :data:`False` when calling the :func:`dump` or
+:func:`dumps` functions, but this causes the timezone offset information to be
+lost.
 
-In versions prior to 4.2 the encoder would convert a ``datetime.date`` object into a
-``datetime.datetime`` prior to writing. This can cause confusion on decoding so this has been
-disabled by default in the next version. The behaviour can be re-enabled as follows::
+In versions prior to 5.0 the encoder would convert a :class:`datetime.date`
+object into a :class:`datetime.datetime` prior to writing. This can cause
+confusion on decoding so this has been disabled by default in the next version.
+The behaviour can be re-enabled as follows:
 
-    from cbor2 import dumps
-    from datetime import date, timezone
+.. literalinclude:: examples/date_as_datetime.py
 
-    # Serialize dates as datetimes
-    encoded = dumps(date(2019, 10, 28), timezone=timezone.utc, date_as_datetime=True)
+A default timezone offset must also be provided.
 
-A default timezone offset must be provided also.
 
 Cyclic (recursive) data structures
 ----------------------------------
 
-If the encoder encounters a shareable object (ie. list or dict) that it has seen before, it will
-by default raise :exc:`~cbor2.encoder.CBOREncodeError` indicating that a cyclic reference has been
-detected and value sharing was not enabled. CBOR has, however, an extension specification that
-allows the encoder to reference a previously encoded value without processing it again. This makes
-it possible to serialize such cyclic references, but value sharing has to be enabled by passing
-``value_sharing=True`` to :func:`~cbor2.encoder.dump`/:func:`~cbor2.encoder.dumps`.
+If the encoder encounters a container object (i.e. list or dict) within itself,
+it will by default raise :exc:`CBOREncodeError` indicating that a cyclic
+reference has been detected and value sharing was not enabled::
 
-.. warning:: Support for value sharing is rare in other CBOR implementations, so think carefully
-    whether you want to enable it. It also causes some line overhead, as all potentially shareable
-    values must be tagged as such.
+    >>> import cbor2
+    >>> lst = []
+    >>> lst.append(lst)
+    >>> lst
+    [[...]]
+    >>> cbor2.dumps(lst)
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    _cbor2.CBOREncodeError: cyclic data structure detected but value sharing is disabled
+
+CBOR has, however, an extension specification that allows the encoder to
+reference a previously encoded value without processing it again. This makes it
+possible to serialize such cyclic references, but value sharing has to be
+enabled by setting *value_sharing* to :data:`True` when calling :func:`dump` or
+:func:`dumps`::
+
+    >>> cbor2.dumps(lst, value_sharing=True)
+    b'\xd8\x1c\x81\xd8\x1d\x00'
+    >>> cbor2.loads(b'\xd8\x1c\x81\xd8\x1d\x00')
+    [[...]]
+
+.. warning::
+
+    Support for value sharing is rare in other CBOR implementations, so think
+    carefully whether you want to enable it. It also causes some line overhead,
+    as all potentially shareable values must be tagged as such (even if they
+    are not later referenced).
+
+
+.. _supported_types:
+
+Type support
+------------
+
+The standard types supported by `CBOR`_, and their corresponding Python types
+are as follows:
+
++------+---------------+--------------------------------------------------+
+| Type | Semantics     | Python type(s)                                   |
++======+===============+==================================================+
+| 0    | Positive int  | :class:`int`                                     |
++------+---------------+                                                  |
+| 1    | Negative int  |                                                  |
++------+---------------+--------------------------------------------------+
+| 2    | Byte-string   | :class:`bytes` (or :class:`str` in Python 2.x)   |
++------+---------------+--------------------------------------------------+
+| 3    | UTF-8 string  | :class:`str` (or :class:`unicode` in Python 2.x) |
++------+---------------+--------------------------------------------------+
+| 4    | List          | :class:`list` or :class:`tuple`                  |
++------+---------------+--------------------------------------------------+
+| 5    | Map           | :class:`dict`                                    |
++------+---------------+--------------------------------------------------+
+| 6    | Extensions    | See next section                                 |
++------+---------------+--------------------------------------------------+
+| 7    | Floats and    | :class:`float`, :class:`bool`, :data:`None`      |
+|      | simple values |                                                  |
++------+---------------+--------------------------------------------------+
+
 
 Tag support
 -----------
 
-In addition to all standard CBOR tags, this library supports many extended tags:
+In addition to all standard `CBOR`_ tags, this library supports many `extended
+tags`_:
 
-=== ======================================== ====================================================
-Tag Semantics                                Python type(s)
-=== ======================================== ====================================================
-0   Standard date/time string                datetime.date / datetime.datetime
-1   Epoch-based date/time                    datetime.date / datetime.datetime
-2   Positive bignum                          int / long
-3   Negative bignum                          int / long
-4   Decimal fraction                         decimal.Decimal
-5   Bigfloat                                 decimal.Decimal
-28  Mark shared value                        N/A
-29  Reference shared value                   N/A
-30  Rational number                          fractions.Fraction
-35  Regular expression                       ``_sre.SRE_Pattern`` (result of ``re.compile(...)``)
-36  MIME message                             email.message.Message
-37  Binary UUID                              uuid.UUID
-258 Set of unique items                      set
-=== ======================================== ====================================================
++-----+---------------------------+-------------------------------------+
+| Tag | Semantics                 | Python type(s)                      |
++=====+===========================+=====================================+
+| 0   | Standard date/time string | :class:`datetime.datetime` (or      |
++-----+---------------------------+ :class:`datetime.date` with the     |
+| 1   | Epoch-based date/time     | ``date_as_datetime`` parameter)     |
++-----+---------------------------+-------------------------------------+
+| 2   | Positive bignum           | :class:`int` (or :class:`long` in   |
++-----+---------------------------+ Python 2.x)                         |
+| 3   | Negative bignum           |                                     |
++-----+---------------------------+-------------------------------------+
+| 4   | Decimal fraction          | :class:`decimal.Decimal`            |
++-----+---------------------------+                                     |
+| 5   | Big-float                 |                                     |
++-----+---------------------------+-------------------------------------+
+| 28  | Mark shared value         | n/a                                 |
++-----+---------------------------+                                     |
+| 29  | Reference shared value    |                                     |
++-----+---------------------------+-------------------------------------+
+| 30  | Rational number           | :class:`fractions.Fraction`         |
++-----+---------------------------+-------------------------------------+
+| 35  | Regular expression        | ``_sre.SRE_Pattern`` (result of     |
+|     |                           | :func:`re.compile`)                 |
++-----+---------------------------+-------------------------------------+
+| 36  | MIME message              | :class:`email.message.Message`      |
++-----+---------------------------+-------------------------------------+
+| 37  | Binary UUID               | :class:`uuid.UUID`                  |
++-----+---------------------------+-------------------------------------+
+| 258 | Set                       | :class:`set` or :class:`frozenset`  |
++-----+---------------------------+-------------------------------------+
+| 260 | Network address           | :class:`ipaddress.IPv4Address` or   |
+|     |                           | :class:`ipaddress.IPv6Address`      |
++-----+---------------------------+-------------------------------------+
+| 261 | Network prefix            | :class:`ipaddress.IPv4Network` or   |
+|     |                           | :class:`ipaddress.IPv6Network`      |
++-----+---------------------------+-------------------------------------+
 
-Arbitary tags can be represented with the :class:`~cbor2.types.CBORTag` class.
+Arbitary tags can be represented with the :class:`CBORTag` class.
 
 
 Use Cases
 ---------
 
-Here are some things that the cbor2 library could be (and in some cases, is being) used for:
+Here are some things that the cbor2 library could be (and in some cases, is
+being) used for:
 
 - Experimenting with network protocols based on CBOR encoding
 - Designing new data storage formats
 - Submitting binary documents to ElasticSearch without base64 encoding overhead
 - Storing and validating file metadata in a secure backup system
 - RPC which supports Decimals with low overhead
+
+.. _CBOR: https://tools.ietf.org/html/rfc7049
+.. _extended tags: https://www.iana.org/assignments/cbor-tags/cbor-tags.xhtml
