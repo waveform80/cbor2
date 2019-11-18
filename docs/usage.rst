@@ -164,6 +164,37 @@ tags`_:
 
 Arbitary tags can be represented with the :class:`CBORTag` class.
 
+Streaming Applications
+----------------------
+
+Some applications require processing an unknown number of concatenated CBOR items
+in a file. Originally this was not well supported due to the decoder interpreting an
+:exc:`EOFError` as a generic :exc:`CBORDecodeError` with no way to distinguish it from
+corrupted data.
+
+It will now distinguish between an :exc:`EOFError` at the first byte of a new object
+and a truncation while decoding a container.
+
+Decoding can now be done from a stream as here:
+
+.. literalinclude:: examples/file_stream_load.py
+
+Or as here by re-using a decoder object and providing a generator:
+
+.. literalinclude:: examples/file_stream_iter.py
+
+If you want to avoid handling :exc:`EOFError` entirely and your file object supports
+the :meth:`io.BufferedReader.peek` method, you can do the following:
+
+.. literalinclude:: examples/file_stream_peek.py
+
+Some network protocols can allow a socket to provide this kind of interface with the :meth:`socket.socket.makefile` method:
+
+.. literalinclude:: examples/network_stream_tx.py
+
+and the receiving end:
+
+.. literalinclude:: examples/network_stream_rx.py
 
 Use Cases
 ---------
