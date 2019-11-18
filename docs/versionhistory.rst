@@ -14,6 +14,8 @@ This library adheres to `Semantic Versioning <http://semver.org/>`_.
 - **BACKWARD INCOMPATIBLE** :exc:`CBORError` now descends from :exc:`Exception` rather than
   :exc:`ValueError`; however, subordinate exceptions now descend from :exc:`ValueError` (where
   appropriate) so most users should notice no difference
+- **BACKWARD INCOMPATIBLE** :class:`CBORDecoder` can now raise :exc:`CBORDecodeEOF` which descends
+  from :exc:`EOFError` supporting streaming applications
 - Optional Pure C implementation by waveform80 that functions identically to the pure Python
   implementation with further contributions from: toravir, jonashoechst, Changaco
 - Drop Python 3.3 and 3.4 support from the build process; they should still work if built from
